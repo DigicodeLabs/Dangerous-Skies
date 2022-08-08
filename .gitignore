@@ -1,0 +1,9 @@
+.DS_Store
+*.app
+*.exe
+HTML5/*
+HTML5.zip
+icon.*
+media/.DS_Store
+media/Thumbs.db
+PSD's/*
