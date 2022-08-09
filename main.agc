@@ -2,15 +2,6 @@
 // Project: Dangerous Skies
 // Created: 22-07-31
 
-// FONTS USED: 
-//	Avenir, 
-//	Lucida Grande
-// SOUNDS USED: 
-//	https://freesound.org/people/Mozfoo/sounds/440163/
-//	https://freesound.org/people/AENHS/sounds/607049/
-//	https://freesound.org/people/Mozfoo/sounds/458377/
-
-// TODO: Add missile sound when close to plane
 #renderer "Basic"
 
 #insert "resolutions.agc"
@@ -28,8 +19,8 @@ SetVirtualResolution(100, 100)
 SetWindowAllowResize(1)
 //SetWindowSize(FindResolutionWidth("Samsung S9") * 0.3, FindResolutionHeight("Samsung S9") * 0.3, 0)
 //SetWindowSize(FindResolutionHeight("Samsung S9") * 0.3, FindResolutionWidth("Samsung S9") * 0.3, 0)
-SetWindowSize(800, 600, 0)
-SetWindowTitle("Text Only Game Jam")
+SetWindowSize(1024, 768, 0)
+SetWindowTitle("Dangerous Skies")
 UseNewDefaultFonts(1)
 
 Sync()
@@ -48,6 +39,10 @@ type typeGame
 	score as integer
 	time as integer
 	timeStarted# as float
+endtype
+type typeJSONVariables
+	variable as string
+	value as string
 endtype
 type typeMissile
 	launchedTime# as float
@@ -90,10 +85,12 @@ imgPlayButton = LoadImage("PlayButton.png") //: SetImageMagFilter(imgPlayButton,
 // GLOBALS
 global blankExplosion as typeExplosion
 global blankMissile as typeMissile
+global blankVariable as typeJSONVariables
 global clouds as integer[100]
 global explosion as typeExplosion[0]
 global explosionSound as integer : explosionSound = LoadSoundOgg("Explosion.ogg")
 global game as typeGame
+global localVariables as typeJSONVariables[]
 global missile as typeMissile[0]
 global missileSound as integer : missileSound = LoadSound("Missile.wav")
 global plane as typePlane
@@ -147,7 +144,13 @@ FixSpriteToScreen(ui.playButton, 1)
 SetViewZoomMode(1)
 SetViewZoom(1)
 
-game.bestTime = val(LoadSharedVariable("bestTime", "0"))
+if (GetDeviceBaseName() = "html5")
+	game.bestTime = val(LoadSharedVariable("bestTime", "0"))
+endif
+if (GetDeviceBaseName() = "mac" or GetDeviceBaseName() = "windows")
+	if (GetFileExists("localVariables.json")) then localVariables.load("localVariables.json")
+	game.bestTime = val(GetLocalVariableValue("bestTime"))
+endif
 game.playing = 0
 game.playedCount = 0
 
@@ -411,7 +414,12 @@ do
 					DeleteSprite(missile[a].markerPointer)
 					if (game.time > game.bestTime)
 						game.bestTime = game.time
-						SaveSharedVariable("bestTime", str(game.bestTime))
+						if (GetDeviceBaseName() = "html5")
+							SaveSharedVariable("bestTime", str(game.bestTime))
+						endif
+						if (GetDeviceBaseName() = "mac" or GetDeviceBaseName() = "windows")
+							SaveLocalVariable("bestTime", str(game.bestTime))
+						endif
 					endif
 				endif
 				for b = 0 to missile.length - 1
@@ -501,6 +509,38 @@ function DestroyAllMissilesAndTweens()
 	explosion.length = 0
 endfunction
 
+function GetLocalVariableValue(variable$ as string)
+	local i as integer
+	local variableValue$ as string
+	
+	for i = 0 to localVariables.length
+		if (localVariables[i].variable = "") then localVariables.remove(i)
+		if (lower(localVariables[i].variable) = lower(variable$))
+			variableValue$ = localVariables[i].value
+		endif
+	next
+endfunction variableValue$
+
+function SaveLocalVariable(variable$ as string, value$ as string)
+	local i as integer
+	local indexFound as integer
+	
+	indexFound = -1
+	for i = 0 to localVariables.length
+		if (lower(localVariables[i].variable) = lower(variable$))
+			indexFound = i
+			localVariables[i].value = value$
+		endif
+	next
+	if (indexFound = -1)
+		localVariables.insert(blankVariable)
+		localVariables[localVariables.length].variable = variable$
+		localVariables[localVariables.length].value = value$
+	endif
+	localVariables.sort()
+	localVariables.save("localVariables.json")
+endfunction
+
 function ShowExplosion(explosionType$ as string, spriteID as integer)
 	if (explosionType$ = "Missile")
 		PlaySound(explosionSound, 7, 0)
@@ -535,7 +575,12 @@ endfunction
 function StartGame()
 	if (game.time > game.bestTime)
 		game.bestTime = game.time
-		SaveSharedVariable("bestTime", str(game.bestTime))
+		if (GetDeviceBaseName() = "html5")
+			SaveSharedVariable("bestTime", str(game.bestTime))
+		endif
+		if (GetDeviceBaseName() = "mac" or GetDeviceBaseName() = "windows")
+			SaveLocalVariable("bestTime", str(game.bestTime))
+		endif
 	endif
 	DestroyAllMissilesAndTweens()
 	SetSpriteAngle(plane.sprite, 0)
